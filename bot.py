@@ -1,83 +1,79 @@
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
-import os
+import asyncio
 import random
+import os
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
 from dotenv import load_dotenv
 
-# Загружаем токен
+# Загружаем .env файл
 load_dotenv()
-API_TOKEN = os.getenv("API_TOKEN")
+API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+if not API_TOKEN:
+    raise ValueError("❌ Токен не найден! Убедитесь, что в .env есть TELEGRAM_BOT_TOKEN")
 
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
-# ----- Команды -----
-@dp.message_handler(commands=["start"])
-async def start_cmd(message: types.Message):
-    await message.reply("Привет! Я твой расширенный бот 🤖\nНапиши /help чтобы узнать команды.")
+# ---- Простейшая логика ----
+replies = {
+    "привет": [
+        "Привет! Как у тебя дела?",
+        "Хей! Рад тебя видеть!",
+        "Здарова! Что нового?"
+    ],
+    "дела": [
+        "Отлично, спасибо что спросил!",
+        "Всё норм, а у тебя?",
+        "Неплохо! Рад, что написал."
+    ],
+    "пока": [
+        "Пока! Увидимся позже 👋",
+        "До встречи!",
+        "Прощай, дружище!"
+    ],
+    "как ты": [
+        "Я отлично! Спасибо 😊",
+        "Нормально, живу в твоём коде 😄",
+        "Всё супер, работаю по шаблону!"
+    ],
+    "спасибо": [
+        "Всегда пожалуйста 😌",
+        "Не за что!",
+        "Рад помочь!"
+    ],
+    "скучал": [
+        "Конечно скучал 😢",
+        "Немного... Но теперь ты тут!",
+        "Скучал, но рад снова общаться!"
+    ]
+}
 
-@dp.message_handler(commands=["help"])
-async def help_cmd(message: types.Message):
-    help_text = (
-        "/start — Приветствие\n"
-        "/help — Помощь\n"
-        "/game — Угадай число\n"
-        "Отправь стикер или фото — я отвечу!\n"
-        "Напиши 'привет' или 'пока' — я отвечу"
-    )
-    await message.reply(help_text)
 
-# ----- Простая игра: угадай число -----
-game_numbers = {}  # Словарь {user_id: число}
+@dp.message()
+async def handle_message(message: types.Message):
+    text = message.text.lower().strip()
 
-@dp.message_handler(commands=["game"])
-async def game_cmd(message: types.Message):
-    number = random.randint(1, 10)
-    game_numbers[message.from_user.id] = number
-    await message.reply("Я загадал число от 1 до 10. Попробуй угадать!")
+    # Проверяем, начинается ли с "ССК"
+    if text.startswith("сск"):
+        user_text = text[3:].strip()
 
-# ----- Обработка текстовых сообщений -----
-@dp.message_handler()
-async def text_handler(message: types.Message):
-    text = message.text.lower()
+        for key, variants in replies.items():
+            if key in user_text:
+                await message.answer(random.choice(variants))
+                return
 
-    # Ответ на ключевые слова
-    if "привет" in text:
-        await message.reply("Привет! Как дела?")
-        return
-    elif "пока" in text:
-        await message.reply("Пока! Увидимся!")
-        return
+        # Если ничего не совпало
+        await message.answer("Я тебя понял, но пока не знаю, что ответить 😅")
 
-    # Проверка игры
-    if message.from_user.id in game_numbers:
-        try:
-            guess = int(text)
-            answer = game_numbers[message.from_user.id]
-            if guess == answer:
-                await message.reply(f"🎉 Верно! Я загадал {answer}")
-                del game_numbers[message.from_user.id]
-            elif guess < answer:
-                await message.reply("Больше!")
-            else:
-                await message.reply("Меньше!")
-        except ValueError:
-            await message.reply("Напиши число от 1 до 10")
-        return
+    elif text.startswith("/start"):
+        await message.answer("Привет! Я бот-шаблон 🤖. Пиши 'ССК' и текст, например:\nССК привет")
 
-    # Эхо
-    await message.reply(f"Ты написал: {message.text}")
 
-# ----- Обработка стикеров -----
-@dp.message_handler(content_types=["sticker"])
-async def sticker_handler(message: types.Message):
-    await message.reply("👍 Крутой стикер!")
+async def main():
+    print("✅ Бот запущен и слушает сообщения...")
+    await dp.start_polling(bot)
 
-# ----- Обработка фото -----
-@dp.message_handler(content_types=["photo"])
-async def photo_handler(message: types.Message):
-    await message.reply("📸 Отличное фото!")
 
-# ----- Запуск бота -----
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
